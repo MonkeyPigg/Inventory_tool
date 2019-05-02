@@ -1,23 +1,14 @@
 import csv
+import argparse
 
-data = open('raw-locations.csv', 'r')
-#data = open('inv_loc_1.csv', 'r')
-
-reader = csv.reader(data)
-
-#ls_data = [x for x in sorted([[y for y in line if y] for line in reader], key=lambda x: len([y for y in x if y])) if x]
-ls_data = [line for line in reader]
-
-print(ls_data[0])
-print()
-
-
+# Set up hierarchical SQL divisions
 building_sql = []
 floor_sql = []
 room_sql = []
 storage_sql = []
 rack_sql = []
 
+# Set up value dictionaries - can be edited and SQL will still be correctly generated
 hierarchy = {
     0: 'Building',
     1: 'Floor',
@@ -25,15 +16,13 @@ hierarchy = {
     3: 'Storage',
     4: 'Rack',
 }
-
 capacity = {
-    'Building': '0,-1',
-    'Floor': '0,-1',
-    'Room': '-1,-1',
-    'Storage': '-1,-1',
-    'Rack': '100,-1',
+    0: '0,-1',
+    1: '0,-1',
+    2: '-1,-1',
+    3: '-1,-1',
+    4: '100,-1',
 }
-
 lists = {
     0: building_sql,
     1: floor_sql,
@@ -42,24 +31,54 @@ lists = {
     4: rack_sql
 }
 
-for row in ls_data:
-    for n in range(5):
-        lists[n].append(
-        "execute inv_upload.invupd('{}','{}','{}','{}','{}')".format(hierarchy[n],
-                                                                     row[n+1],
-                                                                     capacity[hierarchy[n]],
-                                                                     '-'.join([row[x + 1] for x in range(n + 1)]),
-                                                                     ':'.join([row[x] for x in range(n + 1)])
-                                                                     ))
+
+def write_sql(ls_data, out, *args):
+        # Dynamic SQL generation
+    for row in ls_data:
+        if row[0] == '':
+            continue
+        for n in range(5):
+            if args[0]:
+                if len(row) == 1:
+                    continue
+                else:
+                    n = len(row)-2
+            sql = "execute inv_upload.invupd('{}','{}','{}','{}','{}');".format(hierarchy[n],
+                                                                                row[n+1],
+                                                                                capacity[n],
+                                                                                '-'.join([row[x + 1]
+                                                                                          for x in range(n + 1)]),
+                                                                                ':'.join([row[x]
+                                                                                          for x in range(n + 1)]))
+            if sql not in lists[n]:
+                lists[n].append(sql)
+    if not args[1]:
+        levels = 5
+    else:
+        levels = args[1]
+    for x in range(levels):
+        for row in lists[x]:
+            print(row, file=out)
+    out.close()
 
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Please provide file path...')
+    parser.add_argument('locations', help='The csv file of locations')
+    parser.add_argument('--h', action='store_true', help='Specify file paths are stored in hierarchy - legacy format')
+    parser.add_argument('--s', type=int, help='Specify single level in heirarchy')
 
-for l in storage_sql:
-    print(l)
+    ags = parser.parse_args()
 
-#execute inv_upload.invupd('Building','B84',0,-1,'B84','FM-AD-AD-EMEA-DE-MO');
-#execute inv_upload.invupd('Floor','2.OG',0,-1,'B40-2.OG','FM-AD-AS-EMEA-DE-MO:B40');
-#execute inv_upload.invupd('Room','02',-1,-1,'B40-EG-02','FM-AD-AD-EMEA-DE-MO:B40:EG');
-#execute inv_upload.invupd('Storage','Bench06',-1,-1,'B40-2.OG-09-Bench06','FM-AD-AD-EMEA-DE-MO:B40:2.OG:09');
-#execute inv_upload.invupd('Rack','Shelf02',100,-1,'B84-EG-LsmCon-SafetyContainer-Shelf02','FM-AD-AD-EMEA-DE-MO:B84:EG:LsmCon:SafetyContainer');
+    # File handling
+    data = open(ags.locations, 'r')
 
+    reader = csv.reader(data)
+    if ags.h:
+        loc_data = [x for x in sorted([[y for y in line if y] for line in reader],
+                                      key=lambda x: len([y for y in x if y])) if x]
+    else:
+        loc_data = [line for line in reader]
+    output = open('sql_out.txt', 'w')
+
+    write_sql(loc_data, output, ags.h, ags.s)
