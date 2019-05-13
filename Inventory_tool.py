@@ -17,11 +17,11 @@ hierarchy = {
     4: 'Rack',
 }
 capacity = {
-    0: '0,-1',
-    1: '0,-1',
-    2: '-1,-1',
-    3: '-1,-1',
-    4: '100,-1',
+    0: [0,-1],
+    1: [0,-1],
+    2: [-1,-1],
+    3: [-1,-1],
+    4: [100,-1]
 }
 lists = {
     0: building_sql,
@@ -43,13 +43,15 @@ def write_sql(ls_data, out, *args):
                     continue
                 else:
                     n = len(row)-2
-            sql = "execute inv_upload.invupd('{}','{}','{}','{}','{}');".format(hierarchy[n],
+            sql = "execute inv_upload.invupd('{}','{}',{}, {},'{}','{}');".format(hierarchy[n],
                                                                                 row[n+1],
-                                                                                capacity[n],
+                                                                                capacity[n][0], capacity[n][1],
                                                                                 '-'.join([row[x + 1]
-                                                                                          for x in range(n + 1)]),
+                                                                                          for x in range(n + 1)
+                                                                                          if row[x + 1]]),
                                                                                 ':'.join([row[x]
-                                                                                          for x in range(n + 1)]))
+                                                                                          for x in range(n + 1)
+                                                                                         if row[x]]))
             if sql not in lists[n]:
                 lists[n].append(sql)
     if not args[1]:
