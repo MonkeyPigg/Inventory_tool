@@ -52,7 +52,7 @@ def write_sql(ls_data, out, *args):
                                                                                   ':'.join([row[x]
                                                                                             for x in range(n + 1)
                                                                                             if row[x]]))
-            if sql not in lists[n]:
+            if sql not in lists[n] and row[n+1]:
                 lists[n].append(sql)
     if not args[1]:
         levels = 5
